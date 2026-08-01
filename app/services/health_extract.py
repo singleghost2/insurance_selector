@@ -4,11 +4,12 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.llm import client as llm
 from app.llm import prompts
 from app.models import AnalysisTask, HealthFinding, HealthRecord, FINDING_KINDS
 from app.schemas import HealthExtractResult
-from app.services import files, pdf_pipeline
+from app.services import files, ocr, pdf_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -33,26 +34,49 @@ def extract(db: Session, task: AnalysisTask, update_progress) -> None:
     path = files.file_path(file_rec)
 
     user_prompt = "请从以上材料中抽取结构化健康信息。"
+    use_vision = settings.ocr_engine == "vision"
 
     if file_rec.media_type == "image":
-        update_progress(20, "正在用视觉模型解析图片")
-        mime = "image/jpeg" if file_rec.original_name.lower().endswith((".jpg", ".jpeg")) else "image/png"
-        result: HealthExtractResult = llm.vision_json(
-            prompts.HEALTH_EXTRACT_SYSTEM, [path.read_bytes()], user_prompt, HealthExtractResult, mime=mime,
-        )
+        if use_vision:
+            update_progress(20, "正在用视觉模型解析图片")
+            mime = "image/jpeg" if file_rec.original_name.lower().endswith((".jpg", ".jpeg")) else "image/png"
+            result: HealthExtractResult = llm.vision_json(
+                prompts.HEALTH_EXTRACT_SYSTEM, [path.read_bytes()], user_prompt, HealthExtractResult, mime=mime,
+            )
+        else:
+            update_progress(15, "正在 OCR 识别图片")
+            text = ocr.ocr_to_text(path.read_bytes(), file_rec.original_name,
+                                   progress_cb=lambda p, m: update_progress(15 + int(p * 0.5), m))
+            update_progress(70, "正在抽取健康信息")
+            result = llm.chat_json(
+                prompts.HEALTH_EXTRACT_SYSTEM,
+                f"以下是 OCR 识别出的材料文本：\n\n{text}\n\n{user_prompt}",
+                HealthExtractResult,
+            )
     else:
         if file_rec.page_count is None or file_rec.is_scanned is None:
             file_rec.page_count, file_rec.is_scanned = pdf_pipeline.inspect_pdf(path)
             db.commit()
         if file_rec.is_scanned:
-            if file_rec.page_count > MAX_VISION_PAGES:
-                raise ValueError(
-                    f"扫描版健康材料共 {file_rec.page_count} 页，超过 {MAX_VISION_PAGES} 页上限，"
-                    "请拆分后分次上传"
+            if use_vision:
+                if file_rec.page_count > MAX_VISION_PAGES:
+                    raise ValueError(
+                        f"扫描版健康材料共 {file_rec.page_count} 页，超过 {MAX_VISION_PAGES} 页上限，"
+                        "请拆分后分次上传"
+                    )
+                update_progress(20, f"正在用视觉模型解析扫描件（{file_rec.page_count} 页）")
+                images = pdf_pipeline.render_pages_png(path, list(range(1, file_rec.page_count + 1)))
+                result = llm.vision_json(prompts.HEALTH_EXTRACT_SYSTEM, images, user_prompt, HealthExtractResult)
+            else:
+                update_progress(15, f"正在 OCR 识别扫描件（{file_rec.page_count} 页）")
+                text = ocr.ocr_to_text(path.read_bytes(), file_rec.original_name,
+                                       progress_cb=lambda p, m: update_progress(15 + int(p * 0.5), m))
+                update_progress(70, "正在抽取健康信息")
+                result = llm.chat_json(
+                    prompts.HEALTH_EXTRACT_SYSTEM,
+                    f"以下是 OCR 识别出的材料文本：\n\n{text}\n\n{user_prompt}",
+                    HealthExtractResult,
                 )
-            update_progress(20, f"正在用视觉模型解析扫描件（{file_rec.page_count} 页）")
-            images = pdf_pipeline.render_pages_png(path, list(range(1, file_rec.page_count + 1)))
-            result = llm.vision_json(prompts.HEALTH_EXTRACT_SYSTEM, images, user_prompt, HealthExtractResult)
         else:
             update_progress(20, "正在解析 PDF 文本")
             text = "\n\n".join(pdf_pipeline.extract_text_pages(path))

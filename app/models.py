@@ -45,7 +45,6 @@ class InsuranceProduct(Base):
     __tablename__ = "insurance_products"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    file_id: Mapped[int] = mapped_column(ForeignKey("uploaded_files.id"))
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending/analyzing/done/failed
     name: Mapped[str | None] = mapped_column(String(200))
     company: Mapped[str | None] = mapped_column(String(200))
@@ -59,10 +58,34 @@ class InsuranceProduct(Base):
     shortlisted_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
-    file: Mapped[UploadedFile] = relationship()
+    documents: Mapped[list["ProductDocument"]] = relationship(
+        back_populates="product", cascade="all, delete-orphan", order_by="ProductDocument.sort_order"
+    )
     clauses: Mapped[list["KeyClause"]] = relationship(
         back_populates="product", cascade="all, delete-orphan", order_by="KeyClause.sort_order"
     )
+
+    @property
+    def display_name(self) -> str:
+        if self.name:
+            return self.name
+        if self.documents:
+            return self.documents[0].file.original_name
+        return f"产品 {self.id}"
+
+
+class ProductDocument(Base):
+    """一款产品包含的条款文件（主险条款、附加险条款、费率表等）。"""
+    __tablename__ = "product_documents"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("insurance_products.id", ondelete="CASCADE"))
+    file_id: Mapped[int] = mapped_column(ForeignKey("uploaded_files.id"))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+    product: Mapped[InsuranceProduct] = relationship(back_populates="documents")
+    file: Mapped[UploadedFile] = relationship()
 
 
 # 关键条款类别（顺序即展示/对比顺序）
@@ -93,6 +116,7 @@ class KeyClause(Base):
     risk_level: Mapped[str] = mapped_column(String(10), default="info")  # high/medium/low/info
     quote: Mapped[str | None] = mapped_column(Text)
     quote_verified: Mapped[bool | None] = mapped_column(Boolean)  # 原文核实结果
+    source_doc: Mapped[str | None] = mapped_column(String(255))  # 出自哪份条款文件
     page_no: Mapped[int | None] = mapped_column(Integer)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 

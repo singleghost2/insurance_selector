@@ -5,8 +5,6 @@ from pathlib import Path
 import fitz  # PyMuPDF
 
 from app.config import UPLOAD_DIR, settings
-from app.llm import client as llm
-from app.llm import prompts
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +49,9 @@ def render_pages_png(path: Path, page_numbers: list[int], dpi: int = 150) -> lis
 
 
 def ocr_scanned_pdf(path: Path, sha256: str, page_count: int, progress_cb=None) -> list[str]:
-    """扫描版 PDF：视觉模型逐批(2页/批)转写，带缓存。返回带页码标记的每页文本。"""
+    """扫描版 PDF：逐页渲染后 OCR（引擎由 OCR_ENGINE 决定），带缓存。返回带页码标记的每页文本。"""
+    from app.services import ocr
+
     cache = UPLOAD_DIR / f"{sha256}.ocr.txt"
     if cache.exists():
         logger.info("命中 OCR 缓存：%s", cache.name)
@@ -60,19 +60,7 @@ def ocr_scanned_pdf(path: Path, sha256: str, page_count: int, progress_cb=None) 
     if page_count > settings.max_scanned_pages:
         raise ValueError(f"扫描版 PDF 共 {page_count} 页，超过上限 {settings.max_scanned_pages} 页")
 
-    batch_size = 2
-    pages_text: list[str] = []
-    batches = [list(range(i, min(i + batch_size, page_count + 1))) for i in range(1, page_count + 1, batch_size)]
-    for bi, batch in enumerate(batches):
-        if progress_cb:
-            progress_cb(int(bi / len(batches) * 100), f"正在识别扫描页 {batch[0]}-{batch[-1]}/{page_count}")
-        images = render_pages_png(path, batch)
-        text = llm.vision_text(
-            prompts.OCR_SYSTEM,
-            images,
-            f"以上共 {len(batch)} 页，起始页码为第 {batch[0]} 页。请按要求逐页转写。",
-        )
-        pages_text.append(text.strip())
+    pages_text = ocr.ocr_pdf(path, page_count, progress_cb=progress_cb)
 
     cache.write_text("\x0c".join(pages_text), encoding="utf-8")
     return pages_text

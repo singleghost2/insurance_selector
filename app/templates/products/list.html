@@ -9,13 +9,13 @@
   {% for p in products %}
   <article>
     <header>
-      <strong><a href="/products/{{ p.id }}">{{ p.name or p.file.original_name }}</a></strong>
+      <strong><a href="/products/{{ p.id }}">{{ p.display_name }}</a></strong>
       {% if p.is_shortlisted %}<span class="badge badge-green">已自选</span>{% endif %}
     </header>
     <p class="muted">
       {{ p.company or "—" }}<br>
       {% if p.coverage_amount %}{{ p.coverage_amount }}<br>{% endif %}
-      状态：{{ STATUS_LABELS.get(p.status, p.status) }}
+      条款文件 {{ p.documents|length }} 份 · 状态：{{ STATUS_LABELS.get(p.status, p.status) }}
     </p>
     <footer>
       {% if p.status == "done" %}

@@ -67,7 +67,7 @@
 <ul>
   {% for p in done_products %}
   <li>
-    {{ p.name or p.file.original_name }}{% if p.is_shortlisted %} <span class="badge badge-green">自选</span>{% endif %}
+    {{ p.display_name }}{% if p.is_shortlisted %} <span class="badge badge-green">自选</span>{% endif %}
     {% if checks.get(p.id) and checks[p.id].result_json %}
       <a href="/members/{{ member.id }}/disclosure/{{ p.id }}">查看核对结果</a> ·
       <a href="#" onclick="apiAction('POST', '/api/disclosure', {member_id: {{ member.id }}, product_id: {{ p.id }}}); return false">重新核对</a>

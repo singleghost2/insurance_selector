@@ -29,35 +29,56 @@ def verify_quote(quote: str | None, full_text_normalized: str) -> bool | None:
     return q in full_text_normalized or q[:60] in full_text_normalized
 
 
+def _doc_label(original_name: str) -> str:
+    """文件名去掉扩展名作为条款文件标识。"""
+    name = original_name.rsplit(".", 1)[0]
+    return name[:80]
+
+
 def analyze(db: Session, task: AnalysisTask, update_progress) -> None:
     product = db.get(InsuranceProduct, task.target_id)
     if product is None:
         raise ValueError(f"产品 {task.target_id} 不存在")
-    file_rec = product.file
-    path = files.file_path(file_rec)
+    docs = product.documents
+    if not docs:
+        raise ValueError("该产品还没有任何条款文件，请先添加条款 PDF 或通过链接导入")
 
-    update_progress(5, "正在读取 PDF")
-    if file_rec.page_count is None or file_rec.is_scanned is None:
-        file_rec.page_count, file_rec.is_scanned = pdf_pipeline.inspect_pdf(path)
-        db.commit()
+    # 逐份文件抽取/OCR，页码标记升级为【《文件名》第N页】以区分来源
+    all_pages: list[str] = []
+    for di, doc in enumerate(docs):
+        file_rec = doc.file
+        path = files.file_path(file_rec)
+        label = _doc_label(file_rec.original_name)
+        base_pct = 5 + int(di / len(docs) * 55)  # 抽取阶段占总进度 5-60%，按文件均分
+        span = max(1, int(55 / len(docs)))
+        update_progress(base_pct, f"正在读取条款文件 {di + 1}/{len(docs)}：{label}")
 
-    if file_rec.is_scanned:
-        def ocr_progress(pct, msg):
-            # OCR 占总进度的 5-60%
-            update_progress(5 + int(pct * 0.55), msg)
-        pages = pdf_pipeline.ocr_scanned_pdf(path, file_rec.sha256, file_rec.page_count, ocr_progress)
-    else:
-        pages = pdf_pipeline.extract_text_pages(path)
+        if file_rec.page_count is None or file_rec.is_scanned is None:
+            file_rec.page_count, file_rec.is_scanned = pdf_pipeline.inspect_pdf(path)
+            db.commit()
 
-    full_text = "\n\n".join(pages)
+        if file_rec.is_scanned:
+            pages = pdf_pipeline.ocr_scanned_pdf(
+                path, file_rec.sha256, file_rec.page_count,
+                lambda pct, msg: update_progress(base_pct + int(pct / 100 * span), msg),
+            )
+        else:
+            pages = pdf_pipeline.extract_text_pages(path)
+
+        # 【第N页】 -> 【《文件名》第N页】（只替换页首标记）
+        all_pages.extend(p.replace("【第", f"【《{label}》第", 1) for p in pages)
+
+    full_text = "\n\n".join(all_pages)
     total_tokens = pdf_pipeline.estimate_tokens(full_text)
-    logger.info("条款全文约 %d tokens（%d 页）", total_tokens, len(pages))
+    logger.info("产品 %s 共 %d 份条款文件、%d 页、约 %d tokens",
+                product.id, len(docs), len(all_pages), total_tokens)
+    pages = all_pages
 
     if total_tokens <= settings.full_text_token_limit:
         update_progress(65, "正在分析条款全文（可能需要几分钟）")
         result = llm.chat_json(
             prompts.POLICY_ANALYSIS_SYSTEM,
-            f"以下是保险条款全文：\n\n{full_text}",
+            f"以下是该产品全部条款文件的内容（共 {len(docs)} 份文件）：\n\n{full_text}",
             PolicyAnalysisResult,
         )
     else:
@@ -90,7 +111,7 @@ def _map_reduce(pages: list[str], update_progress) -> PolicyAnalysisResult:
 def _save_result(db: Session, product: InsuranceProduct, result: PolicyAnalysisResult,
                  full_text_normalized: str) -> None:
     info = result.basic_info
-    product.name = info.name
+    product.name = product.name or info.name  # 用户手工命名优先
     product.company = info.company
     product.coverage_amount = info.coverage_amount
     product.deductible = info.deductible
@@ -113,6 +134,7 @@ def _save_result(db: Session, product: InsuranceProduct, result: PolicyAnalysisR
             risk_level=item.risk_level if item.risk_level in ("high", "medium", "low", "info") else "info",
             quote=item.quote,
             quote_verified=verify_quote(item.quote, full_text_normalized),
+            source_doc=(item.source_doc or "")[:255] or None,
             page_no=item.page_no,
             sort_order=order.get(category, 99) * 100 + i,
         ))

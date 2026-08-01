@@ -28,7 +28,7 @@
 <div class="card-grid">
   {% for p in shortlisted %}
   <article>
-    <header><strong><a href="/products/{{ p.id }}">{{ p.name or p.file.original_name }}</a></strong></header>
+    <header><strong><a href="/products/{{ p.id }}">{{ p.display_name }}</a></strong></header>
     <p class="muted">{{ p.company or "" }}<br>{{ p.coverage_amount or "" }}</p>
   </article>
   {% endfor %}

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}{{ product.name or "产品分析" }}{% endblock %}
+{% block title %}{{ product.display_name }}{% endblock %}
 {% block content %}
-<h2>{{ product.name or product.file.original_name }}
+<h2>{{ product.display_name }}
   {% if product.is_shortlisted %}<span class="badge badge-green">已自选</span>{% endif %}
 </h2>
 <p>
@@ -10,6 +10,34 @@
   </button>
   <button class="outline secondary" onclick="apiAction('POST', '/api/products/{{ product.id }}/reanalyze', undefined, {confirmMsg: '重新分析会覆盖当前结果，确定？'})">重新分析</button>
 </p>
+
+<article>
+  <header><strong>条款文件（{{ product.documents|length }} 份）</strong>
+    <span class="muted">一款产品通常包含主险条款、附加险条款等多份文件，分析会覆盖全部文件</span>
+  </header>
+  {% for doc in product.documents %}
+  <div style="margin-bottom:.5rem">
+    📄 {{ doc.file.original_name }}
+    <small class="muted">{{ doc.file.page_count or "?" }} 页{% if doc.file.is_scanned %} · 扫描/图片版{% endif %}</small>
+    <a href="#" onclick="apiAction('DELETE', '/api/products/{{ product.id }}/documents/{{ doc.id }}', undefined, {confirmMsg: '从该产品移除这份条款文件？（移除后需重新分析）'}); return false">移除</a>
+  </div>
+  {% else %}
+  <p class="muted">还没有条款文件。</p>
+  {% endfor %}
+  <details>
+    <summary>＋ 追加条款文件</summary>
+    <form id="add-doc-form" style="margin-top:.5rem">
+      <input type="hidden" name="product_id" value="{{ product.id }}">
+      <input type="file" name="uploads" accept=".pdf" multiple required>
+      <button type="submit" class="outline">上传 PDF</button>
+    </form>
+    <form id="add-link-form" style="margin-top:.5rem">
+      <input type="url" name="url" placeholder="或粘贴蚂蚁保条款链接" required>
+      <button type="submit" class="outline">通过链接添加</button>
+    </form>
+    <p class="muted">添加或移除条款文件后，请点上方「重新分析」更新分析结果。</p>
+  </details>
+</article>
 
 {% if product.status != "done" %}
 <article><p>当前状态：{{ STATUS_LABELS.get(product.status, product.status) }}，暂无分析结果。</p></article>
@@ -22,7 +50,6 @@
     <tr><td>保额</td><td>{{ product.coverage_amount or "—" }}</td></tr>
     <tr><td>免赔额</td><td>{{ product.deductible or "—" }}</td></tr>
     <tr><td>续保</td><td>{{ product.guaranteed_renewal or "—" }}</td></tr>
-    <tr><td>条款文件</td><td class="muted">{{ product.file.original_name }}（{{ product.file.page_count or "?" }} 页{% if product.file.is_scanned %}，扫描版{% endif %}）</td></tr>
   </table>
 </article>
 
@@ -46,7 +73,9 @@
     <p>
       <strong>{{ c.title }}</strong>
       <span class="badge badge-{{ c.risk_level }}">{{ RISK_LABELS.get(c.risk_level, c.risk_level) }}</span>
-      {% if c.page_no %}<span class="muted">第 {{ c.page_no }} 页</span>{% endif %}
+      {% if c.source_doc or c.page_no %}
+      <span class="muted">{% if c.source_doc %}《{{ c.source_doc }}》{% endif %}{% if c.page_no %}第 {{ c.page_no }} 页{% endif %}</span>
+      {% endif %}
     </p>
     <p>{{ c.summary }}</p>
     {% if c.quote %}
@@ -63,4 +92,31 @@
 </article>
 {% endfor %}
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+bindUploadForm("add-doc-form", "/api/products/upload");
+
+document.getElementById("add-link-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const form = ev.target;
+  const btn = form.querySelector("button[type=submit]");
+  btn.setAttribute("aria-busy", "true");
+  btn.disabled = true;
+  try {
+    const data = await api("POST", "/api/products/import-url", {
+      url: form.url.value.trim(),
+      product_id: {{ product.id }},
+    });
+    if (data.message) alert(data.message);
+    window.location.href = data.redirect_url || window.location.href;
+    window.location.reload();
+  } catch (e) {
+    alert(e.message);
+    btn.removeAttribute("aria-busy");
+    btn.disabled = false;
+  }
+});
+</script>
 {% endblock %}

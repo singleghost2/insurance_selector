@@ -70,11 +70,11 @@ function bindUploadForm(formId, url) {
       const resp = await fetch(url, { method: "POST", body: new FormData(form) });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.detail || `上传失败（HTTP ${resp.status}）`);
-      if (data.duplicate && data.redirect_url) {
-        alert(data.message || "该文件已上传过");
-        window.location.href = data.redirect_url;
-      } else if (data.task_id) {
+      if (data.task_id) {
         window.location.href = `/tasks/${data.task_id}/wait`;
+      } else if (data.redirect_url) {
+        if (data.message) alert(data.message);
+        window.location.href = data.redirect_url;
       } else {
         window.location.reload();
       }

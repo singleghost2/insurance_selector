@@ -2,7 +2,7 @@
 {% block title %}健康告知核对{% endblock %}
 {% block content %}
 <h2>健康告知核对</h2>
-<p class="muted">{{ member.name }} × {{ product.name or product.file.original_name }}</p>
+<p class="muted">{{ member.name }} × {{ product.display_name }}</p>
 
 {% if not result %}
 <article>

@@ -10,7 +10,7 @@
     <thead>
       <tr>
         <th>维度</th>
-        {% for p in products %}<th><a href="/products/{{ p.id }}">{{ p.name or p.file.original_name }}</a></th>{% endfor %}
+        {% for p in products %}<th><a href="/products/{{ p.id }}">{{ p.display_name }}</a></th>{% endfor %}
       </tr>
     </thead>
     <tbody>

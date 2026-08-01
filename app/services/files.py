@@ -28,10 +28,14 @@ def detect_media_type(filename: str) -> str:
     raise UnsupportedFileError(f"不支持的文件类型：{filename}（仅支持 PDF 和 jpg/png/webp 图片）")
 
 
-def save_upload(db: Session, filename: str, content: bytes, purpose: str) -> tuple[UploadedFile, bool]:
-    """保存上传文件。返回 (记录, 是否已存在的旧文件)。"""
+def save_upload(db: Session, filename: str, content: bytes, purpose: str,
+                sha: str | None = None) -> tuple[UploadedFile, bool]:
+    """保存上传文件。返回 (记录, 是否已存在的旧文件)。
+
+    sha 可外部指定（如链接导入时按源图片内容计算，避免生成的 PDF 因时间戳字节不同而绕过去重）。
+    """
     media_type = detect_media_type(filename)
-    sha = hashlib.sha256(content).hexdigest()
+    sha = sha or hashlib.sha256(content).hexdigest()
 
     existing = (
         db.query(UploadedFile).filter(UploadedFile.sha256 == sha, UploadedFile.purpose == purpose).first()

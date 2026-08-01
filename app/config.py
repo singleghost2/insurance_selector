@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     llm_timeout: int = 300
     llm_json_mode: bool = True
 
+    # OCR 引擎：paddle_api（PaddleOCR 云端 API，默认）/ paddle（本地）/ vision（视觉大模型）
+    ocr_engine: str = "paddle_api"
+    paddle_ocr_api_url: str = "https://paddleocr.aistudio-app.com/api/v2/ocr/jobs"
+    paddle_ocr_api_token: str = ""
+    paddle_ocr_api_model: str = "PaddleOCR-VL-1.6"
+
     # 条款全文直接分析的 token 上限，超过走 map-reduce
     full_text_token_limit: int = 80_000
     # map 阶段每块目标 token 数

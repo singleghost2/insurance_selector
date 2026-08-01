@@ -15,7 +15,8 @@ class KeyClauseItem(BaseModel):
     summary: str = Field(description="用大白话向普通家庭解释这条条款意味着什么，以及是否是坑")
     risk_level: str = Field(description="high(明显严苛/大坑)/medium(需注意)/low(略逊于市场好条款)/info(中性或优势)")
     quote: str | None = Field(default=None, description="条款原文摘录（尽量逐字，50-300字），没有则为 null")
-    page_no: int | None = Field(default=None, description="原文所在页码（依据文中【第N页】标记），不确定则为 null")
+    source_doc: str | None = Field(default=None, description="出自哪份条款文件（依据【《文件名》第N页】标记中的文件名），不确定则为 null")
+    page_no: int | None = Field(default=None, description="原文所在页码（依据【《文件名》第N页】标记中的页码），不确定则为 null")
 
 
 class PolicyBasicInfo(BaseModel):
@@ -39,7 +40,8 @@ class PolicyAnalysisResult(BaseModel):
 class ChunkClauseHit(BaseModel):
     category: str = Field(description="同 KeyClauseItem.category 的取值范围")
     quote: str = Field(description="与该类别相关的条款原文摘录")
-    page_no: int | None = Field(default=None, description="页码，依据【第N页】标记")
+    source_doc: str | None = Field(default=None, description="出自哪份条款文件，依据【《文件名》第N页】标记")
+    page_no: int | None = Field(default=None, description="页码，依据【《文件名》第N页】标记")
     note: str | None = Field(default=None, description="简短说明该摘录讲了什么")
 
 

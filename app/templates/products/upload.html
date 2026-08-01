@@ -2,19 +2,73 @@
 {% block title %}上传保险条款{% endblock %}
 {% block content %}
 <h2>上传保险条款</h2>
+<p class="muted">
+  一款保险产品往往由多份条款文件组成（主险条款、附加险条款、费率表等）。
+  这里会创建一个新产品；上传时可以一次选中多份 PDF。之后还可以在产品详情页继续追加条款文件。
+</p>
+
 <article>
+  <header><strong>方式一：上传 PDF 文件（可多选）</strong></header>
   <form id="policy-upload-form">
+    <label>产品名称（可选，不填则由 AI 从条款中识别）
+      <input type="text" name="name" placeholder="如：好医保长期医疗2026">
+    </label>
     <label>条款 PDF 文件
-      <input type="file" name="file" accept=".pdf" required>
+      <input type="file" name="uploads" accept=".pdf" multiple required>
     </label>
     <p class="muted">
-      建议从保险公司官网或销售页面下载「保险条款」原文 PDF（通常 30-100 页）。
-      文字版 PDF 分析约 1-3 分钟；扫描版需要逐页识别，耗时和费用都更高。
+      建议从保险公司官网或销售页面下载「保险条款」原文 PDF。主险和附加险条款一起选中上传，分析会覆盖全部文件。
+      文字版 PDF 分析约 1-3 分钟；扫描版需要逐页 OCR 识别，耗时更长。
     </p>
-    <button type="submit">开始分析</button>
+    <button type="submit">创建产品并分析</button>
+  </form>
+</article>
+
+<article>
+  <header><strong>方式二：粘贴蚂蚁保条款链接</strong></header>
+  <form id="policy-import-form">
+    <label>条款页面链接
+      <input type="url" name="url" required
+             placeholder="https://render.alipay.com/p/yuyan/.../index.html?...&list=https%3A%2F%2F...">
+    </label>
+    <label>产品名称（可选，方便识别）
+      <input type="text" name="name" placeholder="如：好医保长期医疗2026">
+    </label>
+    <p class="muted">
+      适用于蚂蚁保（支付宝）里只能在线看图片、没有 PDF 下载的条款：
+      打开条款页面后复制浏览器地址栏的完整链接粘贴到这里，系统会自动下载全部条款图片并 OCR 识别后分析。
+      产品有多份条款链接的，先在这里导入第一份创建产品，其余到产品详情页里追加。
+    </p>
+    <button type="submit">导入并分析</button>
   </form>
 </article>
 {% endblock %}
 {% block scripts %}
-<script>bindUploadForm("policy-upload-form", "/api/products/upload");</script>
+<script>
+bindUploadForm("policy-upload-form", "/api/products/upload");
+
+document.getElementById("policy-import-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const form = ev.target;
+  const btn = form.querySelector("button[type=submit]");
+  btn.setAttribute("aria-busy", "true");
+  btn.disabled = true;
+  try {
+    const data = await api("POST", "/api/products/import-url", {
+      url: form.url.value.trim(),
+      name: form.name.value.trim() || null,
+    });
+    if (data.duplicate && data.redirect_url) {
+      alert(data.message || "该条款已导入过");
+      window.location.href = data.redirect_url;
+    } else if (data.task_id) {
+      window.location.href = `/tasks/${data.task_id}/wait`;
+    }
+  } catch (e) {
+    alert(e.message);
+    btn.removeAttribute("aria-busy");
+    btn.disabled = false;
+  }
+});
+</script>
 {% endblock %}

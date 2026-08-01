@@ -48,7 +48,7 @@ def summarize(db: Session, task: AnalysisTask, update_progress) -> None:
     payload = []
     for p in products:
         payload.append({
-            "产品": p.name or p.file.original_name,
+            "产品": p.display_name,
             "分析": json.loads(p.analysis_json) if p.analysis_json else None,
         })
 
