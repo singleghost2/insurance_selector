@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}{{ member.name }} 的健康档案{% endblock %}
+{% block content %}
+<h2>{{ member.name }} 的健康档案
+  <span class="muted" style="font-size:1rem">
+    {% if member.birth_year %}{{ member.birth_year }}年生{% endif %} {{ member.gender or "" }}
+  </span>
+</h2>
+{% if member.notes %}<p class="muted">备注：{{ member.notes }}</p>{% endif %}
+
+<article>
+  <header><strong>上传健康材料</strong>（体检报告 / 检查单 / 病历，PDF 或图片，可多选）</header>
+  <form id="health-upload-form">
+    <input type="hidden" name="member_id" value="{{ member.id }}">
+    <input type="file" name="uploads" accept=".pdf,.jpg,.jpeg,.png,.webp" multiple required>
+    <button type="submit">上传并解析</button>
+  </form>
+</article>
+
+<h3>健康发现时间线
+  <button class="outline" style="float:right" onclick="openFindingDialog()">＋ 手工添加</button>
+</h3>
+{% if not timeline %}
+<p class="muted">还没有健康记录。上传体检报告后会自动解析，或手工添加。</p>
+{% endif %}
+{% for d, items in timeline %}
+<div class="timeline-date">{{ d or "日期不明" }}</div>
+<article>
+  {% for f in items %}
+  <div class="finding-row" style="margin-bottom:.6rem" id="finding-{{ f.id }}">
+    <span class="badge badge-{{ 'high' if f.flag in ('high','low','positive') else 'info' }}">{{ FINDING_KINDS.get(f.kind, f.kind) }}</span>
+    <strong>{{ f.name }}</strong>
+    {% if f.value %}{{ f.value }}{% endif %}
+    {% if f.reference_range %}<small>（参考 {{ f.reference_range }}）</small>{% endif %}
+    {% if f.flag %}<mark>{{ {"high":"偏高","low":"偏低","positive":"阳性/检出"}.get(f.flag, f.flag) }}</mark>{% endif %}
+    {% if f.is_manual %}<small>[人工]</small>{% endif %}
+    {% if f.note %}<br><small>{{ f.note }}</small>{% endif %}
+    <a href="#" onclick='openFindingDialog({{ f.id }}, {{ f.kind|tojson }}, {{ f.name|tojson }}, {{ f.value|tojson }}, {{ f.reference_range|tojson }}, {{ f.flag|tojson }}, {{ f.note|tojson }}, {{ (f.finding_date|string if f.finding_date else "")|tojson }}); return false'>改</a>
+    <a href="#" onclick="apiAction('DELETE', '/api/health/findings/{{ f.id }}', undefined, {confirmMsg: '删除这条记录？'}); return false">删</a>
+  </div>
+  {% endfor %}
+</article>
+{% endfor %}
+
+<h3>材料记录</h3>
+{% if not records %}<p class="muted">暂无。</p>{% endif %}
+{% for r in records %}
+<article>
+  <header>
+    <strong>{{ r.record_type or "未识别类型" }}</strong>
+    <span class="muted">{{ r.exam_date or "" }} {{ r.institution or "" }} · {{ r.file.original_name }}</span>
+    <span class="badge {{ 'badge-green' if r.status == 'done' else 'badge-gray' }}">{{ STATUS_LABELS.get(r.status, r.status) }}</span>
+  </header>
+  {% if r.conclusion %}<p>{{ r.conclusion }}</p>{% endif %}
+  <footer>
+    {% if r.status == "failed" %}
+    <button class="outline" onclick="apiAction('POST', '/api/health/records/{{ r.id }}/reanalyze')">重新解析</button>
+    {% endif %}
+    <button class="outline contrast" onclick="apiAction('DELETE', '/api/health/records/{{ r.id }}', undefined, {confirmMsg: '删除该材料及其自动解析出的健康发现？'})">删除</button>
+  </footer>
+</article>
+{% endfor %}
+
+<h3>健康告知辅助</h3>
+{% if done_products %}
+<p class="muted">结合 {{ member.name }} 的健康档案，对照某款保险的健康告知要求做核对：</p>
+<ul>
+  {% for p in done_products %}
+  <li>
+    {{ p.name or p.file.original_name }}{% if p.is_shortlisted %} <span class="badge badge-green">自选</span>{% endif %}
+    {% if checks.get(p.id) and checks[p.id].result_json %}
+      <a href="/members/{{ member.id }}/disclosure/{{ p.id }}">查看核对结果</a> ·
+      <a href="#" onclick="apiAction('POST', '/api/disclosure', {member_id: {{ member.id }}, product_id: {{ p.id }}}); return false">重新核对</a>
+    {% else %}
+      <a href="#" onclick="apiAction('POST', '/api/disclosure', {member_id: {{ member.id }}, product_id: {{ p.id }}}); return false">开始核对</a>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">还没有已完成分析的保险产品，先去<a href="/products/upload">上传条款</a>。</p>
+{% endif %}
+
+<dialog id="finding-dialog">
+  <article>
+    <header><strong id="finding-dialog-title">添加健康记录</strong></header>
+    <form id="finding-form">
+      <label>类型
+        <select name="kind">
+          {% for k, label in FINDING_KINDS.items() %}<option value="{{ k }}">{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>名称 <input name="name" required placeholder="如：甘油三酯 / 甲状腺结节"></label>
+      <div class="grid">
+        <label>数值 <input name="value" placeholder="2.3 mmol/L"></label>
+        <label>参考范围 <input name="reference_range" placeholder="0.4-1.7"></label>
+      </div>
+      <div class="grid">
+        <label>标志
+          <select name="flag">
+            <option value="">无</option><option value="high">偏高</option>
+            <option value="low">偏低</option><option value="positive">阳性/检出</option>
+          </select>
+        </label>
+        <label>日期 <input name="finding_date" type="date"></label>
+      </div>
+      <label>备注 <input name="note"></label>
+      <footer>
+        <button type="button" class="secondary" onclick="document.getElementById('finding-dialog').close()">取消</button>
+        <button type="submit">保存</button>
+      </footer>
+    </form>
+  </article>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+bindUploadForm("health-upload-form", "/api/health/upload");
+
+function openFindingDialog(id, kind, name, value, ref, flag, note, date) {
+  const dlg = document.getElementById("finding-dialog");
+  const form = document.getElementById("finding-form");
+  form.reset();
+  form.id_value = id || null;
+  document.getElementById("finding-dialog-title").textContent = id ? "编辑健康记录" : "添加健康记录";
+  if (id) {
+    form.kind.value = kind || "abnormal_indicator";
+    form.name.value = name || "";
+    form.value.value = value || "";
+    form.reference_range.value = ref || "";
+    form.flag.value = flag || "";
+    form.note.value = note || "";
+    form.finding_date.value = date || "";
+  }
+  dlg.showModal();
+}
+document.getElementById("finding-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const form = ev.target;
+  const body = {
+    kind: form.kind.value,
+    name: form.name.value.trim(),
+    value: form.value.value.trim() || null,
+    reference_range: form.reference_range.value.trim() || null,
+    flag: form.flag.value || null,
+    note: form.note.value.trim() || null,
+    finding_date: form.finding_date.value || null,
+  };
+  const id = form.id_value;
+  try {
+    await api(id ? "PUT" : "POST", id ? `/api/health/findings/${id}` : `/api/health/members/{{ member.id }}/findings`, body);
+    window.location.reload();
+  } catch (e) { alert(e.message); }
+});
+</script>
+{% endblock %}

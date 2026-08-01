@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}百万医疗险选购助手{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav class="container">
+    <ul>
+      <li><strong><a href="/" class="brand">🛡️ 医疗险选购助手</a></strong></li>
+    </ul>
+    <ul>
+      <li><a href="/">首页</a></li>
+      <li><a href="/products">保险产品</a></li>
+      <li><a href="/compare">自选对比</a></li>
+      <li><a href="/products/upload" role="button" class="outline">上传条款</a></li>
+    </ul>
+  </nav>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="container">
+    <small>家庭自用工具 · AI 分析仅供参考，投保决策请以官方条款与保险公司核保为准</small>
+  </footer>
+  <script src="/static/js/main.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

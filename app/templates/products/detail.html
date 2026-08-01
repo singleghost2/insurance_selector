@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name or "产品分析" }}{% endblock %}
+{% block content %}
+<h2>{{ product.name or product.file.original_name }}
+  {% if product.is_shortlisted %}<span class="badge badge-green">已自选</span>{% endif %}
+</h2>
+<p>
+  <button onclick="apiAction('POST', '/api/products/{{ product.id }}/shortlist')">
+    {{ "移出自选" if product.is_shortlisted else "⭐ 加入自选" }}
+  </button>
+  <button class="outline secondary" onclick="apiAction('POST', '/api/products/{{ product.id }}/reanalyze', undefined, {confirmMsg: '重新分析会覆盖当前结果，确定？'})">重新分析</button>
+</p>
+
+{% if product.status != "done" %}
+<article><p>当前状态：{{ STATUS_LABELS.get(product.status, product.status) }}，暂无分析结果。</p></article>
+{% else %}
+
+<article>
+  <header><strong>基本信息</strong></header>
+  <table>
+    <tr><td>保险公司</td><td>{{ product.company or "—" }}</td></tr>
+    <tr><td>保额</td><td>{{ product.coverage_amount or "—" }}</td></tr>
+    <tr><td>免赔额</td><td>{{ product.deductible or "—" }}</td></tr>
+    <tr><td>续保</td><td>{{ product.guaranteed_renewal or "—" }}</td></tr>
+    <tr><td>条款文件</td><td class="muted">{{ product.file.original_name }}（{{ product.file.page_count or "?" }} 页{% if product.file.is_scanned %}，扫描版{% endif %}）</td></tr>
+  </table>
+</article>
+
+<div class="grid">
+  <article>
+    <header><strong>✅ 优势</strong></header>
+    <ul>{% for item in pros %}<li>{{ item }}</li>{% endfor %}</ul>
+  </article>
+  <article>
+    <header><strong>⚠️ 劣势与风险</strong></header>
+    <ul>{% for item in cons %}<li>{{ item }}</li>{% endfor %}</ul>
+  </article>
+</div>
+
+<h3>影响理赔的关键条款</h3>
+{% for cat_name, items in grouped_clauses %}
+<article>
+  <header><strong>{{ cat_name }}</strong></header>
+  {% for c in items %}
+  <div class="risk-{{ c.risk_level }}" style="margin-bottom:1rem">
+    <p>
+      <strong>{{ c.title }}</strong>
+      <span class="badge badge-{{ c.risk_level }}">{{ RISK_LABELS.get(c.risk_level, c.risk_level) }}</span>
+      {% if c.page_no %}<span class="muted">第 {{ c.page_no }} 页</span>{% endif %}
+    </p>
+    <p>{{ c.summary }}</p>
+    {% if c.quote %}
+    <details>
+      <summary class="muted">条款原文
+        {% if c.quote_verified is true %}<span class="badge badge-green">已核实</span>
+        {% elif c.quote_verified is false %}<span class="badge badge-gray">引用未能在原文核实，请自行翻阅条款确认</span>{% endif %}
+      </summary>
+      <div class="quote-block">{{ c.quote }}</div>
+    </details>
+    {% endif %}
+  </div>
+  {% endfor %}
+</article>
+{% endfor %}
+{% endif %}
+{% endblock %}

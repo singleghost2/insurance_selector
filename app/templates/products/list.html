@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}保险产品{% endblock %}
+{% block content %}
+<h2>保险产品 <a href="/products/upload" role="button" class="outline" style="float:right">＋ 上传条款</a></h2>
+{% if not products %}
+<p class="muted">还没有分析过任何保险条款。</p>
+{% endif %}
+<div class="card-grid">
+  {% for p in products %}
+  <article>
+    <header>
+      <strong><a href="/products/{{ p.id }}">{{ p.name or p.file.original_name }}</a></strong>
+      {% if p.is_shortlisted %}<span class="badge badge-green">已自选</span>{% endif %}
+    </header>
+    <p class="muted">
+      {{ p.company or "—" }}<br>
+      {% if p.coverage_amount %}{{ p.coverage_amount }}<br>{% endif %}
+      状态：{{ STATUS_LABELS.get(p.status, p.status) }}
+    </p>
+    <footer>
+      {% if p.status == "done" %}
+        <a href="/products/{{ p.id }}" role="button" class="outline">查看分析</a>
+        <button class="outline secondary" onclick="apiAction('POST', '/api/products/{{ p.id }}/shortlist')">
+          {{ "移出自选" if p.is_shortlisted else "加入自选" }}
+        </button>
+      {% elif p.status in ("pending", "analyzing") and latest_tasks.get(p.id) %}
+        <a href="/tasks/{{ latest_tasks[p.id].id }}/wait" role="button" class="outline">查看进度</a>
+      {% elif p.status == "failed" %}
+        <button class="outline" onclick="apiAction('POST', '/api/products/{{ p.id }}/reanalyze')">重新分析</button>
+      {% endif %}
+      <button class="outline contrast" onclick="apiAction('DELETE', '/api/products/{{ p.id }}', undefined, {confirmMsg: '确定删除该产品及其分析结果？'})">删除</button>
+    </footer>
+  </article>
+  {% endfor %}
+</div>
+{% endblock %}

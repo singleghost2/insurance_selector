@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}分析中…{% endblock %}
+{% block content %}
+<article>
+  <header><strong>
+    {{ {"policy_analysis":"条款分析中","health_extract":"健康材料解析中",
+        "disclosure":"健康告知核对中","compare_summary":"对比总结生成中"}.get(task.task_type, "任务处理中") }}
+  </strong></header>
+  <progress id="task-progress" value="{{ task.progress }}" max="100"></progress>
+  <p id="task-msg" class="muted">{{ task.progress_msg }}</p>
+  <p class="muted">条款分析通常需要 1-5 分钟（扫描件更久），可以离开此页稍后回来查看。</p>
+  <div id="task-error" style="display:none">
+    <mark>任务失败</mark>
+    <p></p>
+    <a href="javascript:history.back()" role="button" class="outline">返回重试</a>
+  </div>
+</article>
+{% endblock %}
+{% block scripts %}
+<script>pollTask({{ task.id }});</script>
+{% endblock %}

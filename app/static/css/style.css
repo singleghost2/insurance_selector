@@ -1,0 +1,30 @@
+.brand { text-decoration: none; }
+.risk-high { border-left: 4px solid #d93526; padding-left: .75rem; }
+.risk-medium { border-left: 4px solid #e8a13c; padding-left: .75rem; }
+.risk-low { border-left: 4px solid #3c9de8; padding-left: .75rem; }
+.risk-info { border-left: 4px solid #7fb069; padding-left: .75rem; }
+.badge {
+  display: inline-block; padding: .1rem .5rem; border-radius: .5rem;
+  font-size: .75rem; color: #fff; vertical-align: middle;
+}
+.badge-high { background: #d93526; }
+.badge-medium { background: #e8a13c; }
+.badge-low { background: #3c9de8; }
+.badge-info { background: #7fb069; }
+.badge-gray { background: #888; }
+.badge-green { background: #2e7d32; }
+.quote-block {
+  background: var(--pico-code-background-color, #f5f5f5);
+  padding: .5rem .75rem; border-radius: .25rem; font-size: .85rem;
+  white-space: pre-wrap; margin-top: .5rem;
+}
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+.compare-table td { font-size: .85rem; vertical-align: top; max-width: 320px; }
+.compare-table td.cell-high { background: rgba(217, 53, 38, .08); }
+.compare-table td.cell-medium { background: rgba(232, 161, 60, .10); }
+.timeline-date { font-weight: bold; margin-top: 1rem; }
+.finding-row small { color: var(--pico-muted-color); }
+.inline-form { display: inline; }
+progress { width: 100%; }
+.muted { color: var(--pico-muted-color); font-size: .85rem; }
+dialog article { min-width: min(560px, 90vw); }

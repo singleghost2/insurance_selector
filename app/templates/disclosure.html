@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}健康告知核对{% endblock %}
+{% block content %}
+<h2>健康告知核对</h2>
+<p class="muted">{{ member.name }} × {{ product.name or product.file.original_name }}</p>
+
+{% if not result %}
+<article>
+  <p>还没有核对结果。</p>
+  <button onclick="apiAction('POST', '/api/disclosure', {member_id: {{ member.id }}, product_id: {{ product.id }}})">开始核对</button>
+</article>
+{% else %}
+
+<article>
+  <header><strong>总体建议</strong></header>
+  <p>{{ result.overall }}</p>
+</article>
+
+{% for item in result["items"] %}
+<article class="risk-{{ 'high' if item.should_disclose == 'yes' else ('medium' if item.should_disclose == 'maybe' else 'info') }}">
+  <p><strong>{{ item.question }}</strong>
+    <span class="badge badge-{{ 'high' if item.should_disclose == 'yes' else ('medium' if item.should_disclose == 'maybe' else 'info') }}">
+      {{ {"yes":"建议告知","maybe":"建议咨询","no":"大概率无需告知"}.get(item.should_disclose, item.should_disclose) }}
+    </span>
+  </p>
+  {% if item.matched_findings %}
+  <p>可能命中的健康记录：</p>
+  <ul>{% for mf in item.matched_findings %}<li>{{ mf }}</li>{% endfor %}</ul>
+  {% endif %}
+  <p><strong>核保影响：</strong>{{ item.impact }}</p>
+  <p class="muted">{{ item.advice }}</p>
+</article>
+{% endfor %}
+
+<p>
+  <button class="outline secondary" onclick="apiAction('POST', '/api/disclosure', {member_id: {{ member.id }}, product_id: {{ product.id }}}, {confirmMsg: '重新核对会覆盖当前结果，确定？'})">重新核对</button>
+  <a href="/members/{{ member.id }}" role="button" class="outline">返回健康档案</a>
+</p>
+{% endif %}
+{% endblock %}

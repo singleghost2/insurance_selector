@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}自选对比{% endblock %}
+{% block content %}
+<h2>自选保险对比</h2>
+{% if products|length < 2 %}
+<p class="muted">自选中需要至少 2 款已完成分析的保险才能对比。去 <a href="/products">产品列表</a> 把候选保险「加入自选」。</p>
+{% else %}
+<figure style="overflow-x:auto">
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>维度</th>
+        {% for p in products %}<th><a href="/products/{{ p.id }}">{{ p.name or p.file.original_name }}</a></th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td><strong>{{ row.label }}</strong></td>
+        {% for cell in row.cells %}
+        <td class="{% if row.risks is defined %}cell-{{ row.risks[loop.index0] }}{% endif %}">{{ cell }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</figure>
+
+<p>
+  <button onclick="apiAction('POST', '/api/compare/summary', {product_ids: {{ products|map(attribute='id')|list|tojson }}})">
+    🤖 生成 AI 对比总结
+  </button>
+</p>
+
+{% if summary_md %}
+<article>
+  <header><strong>AI 对比总结</strong></header>
+  {{ summary_md|markdown|safe }}
+</article>
+{% endif %}
+{% endif %}
+{% endblock %}

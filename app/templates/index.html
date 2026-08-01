@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>家庭成员</h2>
+<div class="card-grid">
+  {% for m in members %}
+  <article>
+    <header><strong><a href="/members/{{ m.id }}">{{ m.name }}</a></strong>
+      <span class="muted">
+        {{ {"self":"本人","spouse":"配偶","father":"父亲","mother":"母亲","other":""}.get(m.relation, "") }}
+        {% if m.birth_year %}· {{ m.birth_year }}年生{% endif %}
+      </span>
+    </header>
+    <p class="muted">健康记录 {{ finding_counts.get(m.id, 0) }} 条{% if m.notes %} · {{ m.notes }}{% endif %}</p>
+    <footer>
+      <a href="/members/{{ m.id }}" role="button" class="outline">健康档案</a>
+      <button class="outline secondary" onclick='openMemberDialog({{ m.id }}, {{ m.name|tojson }}, {{ m.relation|tojson }}, {{ m.birth_year|tojson }}, {{ m.gender|tojson }}, {{ m.notes|tojson }})'>编辑</button>
+      <button class="outline contrast" onclick="apiAction('DELETE', '/api/members/{{ m.id }}', undefined, {confirmMsg: '删除成员将同时删除其全部健康档案，确定？'})">删除</button>
+    </footer>
+  </article>
+  {% endfor %}
+  <article style="display:flex;align-items:center;justify-content:center">
+    <button onclick="openMemberDialog()">＋ 添加成员</button>
+  </article>
+</div>
+
+<h2>自选保险</h2>
+{% if shortlisted %}
+<div class="card-grid">
+  {% for p in shortlisted %}
+  <article>
+    <header><strong><a href="/products/{{ p.id }}">{{ p.name or p.file.original_name }}</a></strong></header>
+    <p class="muted">{{ p.company or "" }}<br>{{ p.coverage_amount or "" }}</p>
+  </article>
+  {% endfor %}
+</div>
+<p><a href="/compare" role="button">去对比 →</a></p>
+{% else %}
+<p class="muted">还没有自选保险。<a href="/products/upload">上传一份条款 PDF</a> 开始分析，分析完成后可加入自选。</p>
+{% endif %}
+
+<dialog id="member-dialog">
+  <article>
+    <header><strong id="member-dialog-title">添加成员</strong></header>
+    <form id="member-form">
+      <input type="hidden" name="id">
+      <label>称呼 <input name="name" required placeholder="如：老婆 / 爸 / 妈"></label>
+      <label>关系
+        <select name="relation">
+          <option value="self">本人</option><option value="spouse">配偶</option>
+          <option value="father">父亲</option><option value="mother">母亲</option>
+          <option value="other" selected>其他</option>
+        </select>
+      </label>
+      <div class="grid">
+        <label>出生年份 <input name="birth_year" type="number" min="1920" max="2026" placeholder="1960"></label>
+        <label>性别
+          <select name="gender"><option value="">未填</option><option value="男">男</option><option value="女">女</option></select>
+        </label>
+      </div>
+      <label>备注 <input name="notes" placeholder="如：有高血压病史"></label>
+      <footer>
+        <button type="button" class="secondary" onclick="document.getElementById('member-dialog').close()">取消</button>
+        <button type="submit">保存</button>
+      </footer>
+    </form>
+  </article>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openMemberDialog(id, name, relation, birthYear, gender, notes) {
+  const dlg = document.getElementById("member-dialog");
+  const form = document.getElementById("member-form");
+  form.reset();
+  form.id_value = id || null;
+  document.getElementById("member-dialog-title").textContent = id ? "编辑成员" : "添加成员";
+  if (id) {
+    form.name.value = name || "";
+    form.relation.value = relation || "other";
+    form.birth_year.value = birthYear || "";
+    form.gender.value = gender || "";
+    form.notes.value = notes || "";
+  }
+  dlg.showModal();
+}
+document.getElementById("member-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const form = ev.target;
+  const body = {
+    name: form.name.value.trim(),
+    relation: form.relation.value,
+    birth_year: form.birth_year.value ? parseInt(form.birth_year.value) : null,
+    gender: form.gender.value || null,
+    notes: form.notes.value.trim() || null,
+  };
+  const id = form.id_value;
+  try {
+    await api(id ? "PUT" : "POST", id ? `/api/members/${id}` : "/api/members", body);
+    window.location.reload();
+  } catch (e) { alert(e.message); }
+});
+</script>
+{% endblock %}
