@@ -31,9 +31,14 @@
       <input type="url" name="url" required
              placeholder="https://render.alipay.com/p/yuyan/.../index.html?...&list=https%3A%2F%2F...">
     </label>
-    <label>产品名称（可选，方便识别）
-      <input type="text" name="name" placeholder="如：好医保长期医疗2026">
-    </label>
+    <div class="grid">
+      <label>产品名称（可选）
+        <input type="text" name="name" placeholder="如：好医保长期医疗2026">
+      </label>
+      <label>条款文件名称（可选）
+        <input type="text" name="doc_name" placeholder="如：好医保长期医疗主险条款">
+      </label>
+    </div>
     <p class="muted">
       适用于蚂蚁保（支付宝）里只能在线看图片、没有 PDF 下载的条款：
       打开条款页面后复制浏览器地址栏的完整链接粘贴到这里，系统会自动下载全部条款图片并 OCR 识别后分析。
@@ -57,6 +62,7 @@ document.getElementById("policy-import-form").addEventListener("submit", async (
     const data = await api("POST", "/api/products/import-url", {
       url: form.url.value.trim(),
       name: form.name.value.trim() || null,
+      doc_name: form.doc_name.value.trim() || null,
     });
     if (data.duplicate && data.redirect_url) {
       alert(data.message || "该条款已导入过");

@@ -115,7 +115,8 @@ async def upload_policy(background_tasks: BackgroundTasks,
 
 class ImportUrlIn(BaseModel):
     url: str
-    name: str | None = None
+    name: str | None = None       # 产品名称（新建产品时用）
+    doc_name: str | None = None   # 条款文件名称；不填则退回产品名称，再退回默认名
     product_id: int | None = None
 
 
@@ -124,7 +125,7 @@ def import_policy_url(body: ImportUrlIn, background_tasks: BackgroundTasks,
                       db: Session = Depends(get_db)):
     """从蚂蚁保等图片式条款链接导入。product_id 为空则新建产品并自动分析；否则追加（不自动分析）。"""
     try:
-        file_rec, existed = policy_import.import_from_url(db, body.url, body.name)
+        file_rec, existed = policy_import.import_from_url(db, body.url, body.doc_name or body.name)
     except policy_import.PolicyImportError as e:
         raise HTTPException(400, str(e))
 

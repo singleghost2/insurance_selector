@@ -19,6 +19,11 @@
   <div style="margin-bottom:.5rem">
     📄 {{ doc.file.original_name }}
     <small class="muted">{{ doc.file.page_count or "?" }} 页{% if doc.file.is_scanned %} · 扫描/图片版{% endif %}</small>
+    <a href="/api/files/{{ doc.file.id }}/download">下载PDF</a>
+    {% if has_ocr.get(doc.id) %}
+    <a href="/api/files/{{ doc.file.id }}/ocr-text">下载文字版</a>
+    {% endif %}
+    <a href="#" onclick='renameFile({{ doc.file.id }}, {{ doc.file.original_name|tojson }}); return false'>改名</a>
     <a href="#" onclick="apiAction('DELETE', '/api/products/{{ product.id }}/documents/{{ doc.id }}', undefined, {confirmMsg: '从该产品移除这份条款文件？（移除后需重新分析）'}); return false">移除</a>
   </div>
   {% else %}
@@ -33,6 +38,7 @@
     </form>
     <form id="add-link-form" style="margin-top:.5rem">
       <input type="url" name="url" placeholder="或粘贴蚂蚁保条款链接" required>
+      <input type="text" name="doc_name" placeholder="条款文件名称（可选，如：附加外购药条款）">
       <button type="submit" class="outline">通过链接添加</button>
     </form>
     <p class="muted">添加或移除条款文件后，请点上方「重新分析」更新分析结果。</p>
@@ -98,6 +104,12 @@
 <script>
 bindUploadForm("add-doc-form", "/api/products/upload");
 
+function renameFile(fileId, current) {
+  const name = prompt("新的条款文件名称：", current.replace(/\.pdf$/i, ""));
+  if (!name || !name.trim()) return;
+  apiAction("PUT", `/api/files/${fileId}/rename`, { name: name.trim() });
+}
+
 document.getElementById("add-link-form").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const form = ev.target;
@@ -107,6 +119,7 @@ document.getElementById("add-link-form").addEventListener("submit", async (ev) =
   try {
     const data = await api("POST", "/api/products/import-url", {
       url: form.url.value.trim(),
+      doc_name: form.doc_name.value.trim() || null,
       product_id: {{ product.id }},
     });
     if (data.message) alert(data.message);

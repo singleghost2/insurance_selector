@@ -93,9 +93,12 @@ def product_upload_page(request: Request):
 
 @router.get("/products/{product_id}")
 def product_detail(product_id: int, request: Request, db: Session = Depends(get_db)):
+    from app.config import UPLOAD_DIR
+
     product = db.get(InsuranceProduct, product_id)
     if not product:
         raise HTTPException(404, "产品不存在")
+    has_ocr = {d.id: (UPLOAD_DIR / f"{d.file.sha256}.ocr.txt").exists() for d in product.documents}
     grouped: list[tuple[str, list]] = []
     for cat, cat_name in CLAUSE_CATEGORIES.items():
         items = [c for c in product.clauses if c.category == cat]
@@ -104,6 +107,7 @@ def product_detail(product_id: int, request: Request, db: Session = Depends(get_
     return templates.TemplateResponse(request, "products/detail.html", {
         "product": product,
         "grouped_clauses": grouped,
+        "has_ocr": has_ocr,
         "pros": json.loads(product.pros_json or "[]"),
         "cons": json.loads(product.cons_json or "[]"),
     })

@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.database import Base, engine
 from app import models  # noqa: F401  确保模型注册到 Base
-from app.routers import analysis, health, members, pages, products, tasks
+from app.routers import analysis, files_dl, health, members, pages, products, tasks
 from app.services.task_runner import fail_orphan_tasks
 from app.templating import templates
 
@@ -32,6 +32,7 @@ app.include_router(products.router)
 app.include_router(health.router)
 app.include_router(analysis.router)
 app.include_router(tasks.router)
+app.include_router(files_dl.router)
 
 
 @app.exception_handler(404)

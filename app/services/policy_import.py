@@ -112,7 +112,10 @@ def import_from_url(db: Session, page_url: str, name: str | None = None) -> tupl
 
     images = download_images(urls)
     pdf_bytes = images_to_pdf(images)
-    filename = (name.strip() if name and name.strip() else f"蚂蚁保条款导入_{url_sha[:8]}") + ".pdf"
+    clean = (name or "").strip()
+    if clean.lower().endswith(".pdf"):
+        clean = clean[:-4].strip()
+    filename = (clean or f"蚂蚁保条款导入_{url_sha[:8]}") + ".pdf"
     file_rec, existed = files.save_upload(db, filename, pdf_bytes, "policy", sha=url_sha)
     if not existed:
         file_rec.page_count = len(images)
